@@ -2,8 +2,8 @@
 
 
 int session_id;
-char* this_req_pipe_path;
-char* this_resp_pipe_path;
+char this_req_pipe_path[40];
+char this_resp_pipe_path[40];
 int fres, freq;
 
 int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const* server_pipe_path) {
@@ -50,8 +50,24 @@ int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const*
     fprintf(stderr, "Failed to write to server pipe\n");
     return 1;
   }
-   if (close(fdserver)<0){
+  printf("before closing\n");
+  if (close(fdserver)<0){
     fprintf(stderr, "Failed to close server pipe\n");
+    return 1;
+  }
+  printf("after closing\n");
+
+  if ((freq = open (req_pipe_path, O_WRONLY)) < 0) {
+    if(close(fres)<0){
+      fprintf(stderr, "Failed to close response pipe\n");
+    }
+    if(unlink(req_pipe_path)<0){
+      fprintf(stderr, "Failed to unlink request pipe\n");
+    }
+    if(unlink(resp_pipe_path)<0){
+      fprintf(stderr, "Failed to unlink reponse pipe\n");
+    }
+    fprintf(stderr, "Failed to open request pipe\n");
     return 1;
   }
   
@@ -70,26 +86,13 @@ int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const*
   if(read(fres, &session_id, sizeof(int))<0){
     fprintf(stderr, "Failed to read from server pipe\n");
     return 1;
-  }
-
-  if ((freq = open (req_pipe_path, O_WRONLY)) < 0) {
-    if(close(fres)<0){
-      fprintf(stderr, "Failed to close response pipe\n");
-    }
-    if(unlink(req_pipe_path)<0){
-      fprintf(stderr, "Failed to unlink request pipe\n");
-    }
-    if(unlink(resp_pipe_path)<0){
-      fprintf(stderr, "Failed to unlink reponse pipe\n");
-    }
-    fprintf(stderr, "Failed to open request pipe\n");
-    return 1;
-  }
+  } 
   
-  
-  
+  printf("session_id: %d\n", session_id);
   strcpy(this_req_pipe_path, req_pipe_path);
+  printf("this_req_pipe_path: %s\n", this_req_pipe_path);
   strcpy(this_resp_pipe_path, resp_pipe_path);
+  printf("this_resp_pipe_path: %s\n", this_resp_pipe_path);
 
   return 0;
 }
@@ -100,10 +103,7 @@ int ems_quit(void) {
     fprintf(stderr, "Failed to write to request pipe\n");
     return 1;
   }
-  if (write(freq, &session_id, sizeof(int)) < 0){
-    fprintf(stderr, "Failed to write to request pipe\n");
-    return 1;
-  }
+
   if(close(freq)<0){
       fprintf(stderr, "Failed to close request pipe\n");
       return 1;
@@ -132,10 +132,6 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     fprintf(stderr, "Failed to write command to request pipe\n");
     return 1;
   }
-  if(write(freq, &session_id,sizeof(int))<0) {
-    fprintf(stderr, "Failed to write session_id to request pipe\n");
-    return 1;
-  }
   if(write(freq, &event_id ,sizeof(int))<0) {
     fprintf(stderr, "Failed to write event_id to request pipe\n");
     return 1;
@@ -153,13 +149,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
     fprintf(stderr, "Failed to read response from response pipe\n");
     return 1;
   }
-  else if (ret == 1) {
-    fprintf(stderr, "Failed to create event\n");
-      return 1;
-  }
-  else {
-    return 0;
-  }
+  return ret;
 }
 
 int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys) {
@@ -167,10 +157,6 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   char code = '4';
   if(write(freq,&code,1)<0) {
     fprintf(stderr, "Failed to write command to request pipe\n");
-    return 1;
-  }
-  if(write(freq,&session_id,sizeof(int))<0) {
-    fprintf(stderr, "Failed to write session_id to request pipe\n");
     return 1;
   }
   if(write(freq,&event_id,sizeof(int))<0) {
@@ -189,7 +175,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
     fprintf(stderr, "Failed to write ys array to request pipe\n");
     return 1;
   }
-  // descobrir o que fazer com o retorno
+
   if(read(fres, &ret, sizeof(int))<0){
     fprintf(stderr, "Failed to read response from response pipe\n");
     return 1;
@@ -204,7 +190,6 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
 }
 
 int ems_show(int out_fd, unsigned int event_id) {
-
   size_t num_rows, num_cols;
   int ret;
   char code= '5'; 
@@ -212,14 +197,12 @@ int ems_show(int out_fd, unsigned int event_id) {
     fprintf(stderr, "Failed to write command to request pipe\n");
     return 1;
   }
-  if(write(freq, &session_id,sizeof(int))<0) {
-    fprintf(stderr, "Failed to write session_id to request pipe\n");
-    return 1;
-  }
-  if(write(freq, &event_id,sizeof(int))<0) {
+
+  if (write(freq,&event_id,sizeof(unsigned int)) < 0) {
     fprintf(stderr, "Failed to write event_id to request pipe\n");
     return 1;
   }
+
   if(read(fres, &ret, sizeof(int))<0) {
     fprintf(stderr, "Failed to read response from response pipe\n");
     return 1;
@@ -238,7 +221,7 @@ int ems_show(int out_fd, unsigned int event_id) {
     fprintf(stderr, "Failed to read seats array from response pipe\n");
     return 1;
   }
-  //adiconar mutex para o file desciptor
+
   for (size_t i = 1; i <=num_rows; i++) {
     for (size_t j = 1; j <= num_cols; j++) {
       char buffer[16];
@@ -274,10 +257,7 @@ int ems_list_events(int out_fd) {
     fprintf(stderr, "Failed to write command to request pipe\n");
     return 1;
   }
-  if(write(freq, &session_id,sizeof(int))<0) {
-    fprintf(stderr, "Failed to write session_id to request pipe\n");
-    return 1;
-  }
+
   if(read(fres, &ret, sizeof(int))<0) {
     fprintf(stderr, "Failed to read return\n");
   }

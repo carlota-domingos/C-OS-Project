@@ -19,14 +19,13 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-
   const char* dot = strrchr(argv[4], '.');
   if (dot == NULL || dot == argv[4] || strlen(dot) != 5 || strcmp(dot, ".jobs") ||
       strlen(argv[4]) > MAX_JOB_FILE_NAME_SIZE) {
-    fprintf(stderr, "The provided .jobs file path is not valid. Path: %s\n", argv[1]);
+    fprintf(stderr, "The provided .jobs file path is not valid. Path: %s\n", argv[4]);
     return 1;
   }
-
+  
   char out_path[MAX_JOB_FILE_NAME_SIZE];
   strcpy(out_path, argv[4]);
   strcpy(strrchr(out_path, '.'), ".out");
@@ -43,7 +42,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   printf("Output file: %s\n", out_path);
-
+  
   while (1) {
     unsigned int event_id;
     size_t num_rows, num_columns, num_coords;
@@ -117,6 +116,8 @@ int main(int argc, char* argv[]) {
 
       case EOC:
         ems_quit();
+        close(out_fd);
+        close(in_fd);
         return 0;
     }
   }

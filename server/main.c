@@ -21,14 +21,14 @@ pthread_mutex_t produce_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t produce_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t consume_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t consume_cond = PTHREAD_COND_INITIALIZER;
-struct client prod_cons_buffer[10];
+struct client prod_cons_buffer;
 
 void produce(struct client* client){
   pthread_mutex_lock(&produce_mutex);
-  while(waiting_sessions== 10){
+  while(waiting_sessions== 1){
     pthread_cond_wait(&produce_cond, &produce_mutex);
   }
-  memcpy(&prod_cons_buffer[waiting_sessions], client, sizeof(struct client));
+  memcpy(&prod_cons_buffer, client, sizeof(struct client));
   waiting_sessions++;
   pthread_cond_signal(&consume_cond);
   pthread_mutex_unlock(&produce_mutex);
@@ -39,18 +39,23 @@ struct client* consume(){
   while(waiting_sessions==0){
     pthread_cond_wait(&consume_cond, &consume_mutex);
   }
-  struct client* client = &prod_cons_buffer[waiting_sessions-1];
+  struct client* client = malloc(sizeof(struct client));
+  memcpy(client, &prod_cons_buffer, sizeof(struct client));
   waiting_sessions--;
   client->session_id = session_id++;
   pthread_cond_signal(&produce_cond);
   pthread_mutex_unlock(&consume_mutex);
   if((client->fdreq=open(client->req_path, O_RDONLY))==-1){
       fprintf(stderr, "Failed to open request pipe\n");
-  }
+  } 
+  printf("%s\n", client->req_path);
+
   
   if((client->fdresp=open(client->res_path, O_WRONLY))==-1){
     fprintf(stderr, "Failed to open response pipe\n");
-  }
+  } 
+  printf("%s\n", client->res_path);
+  
   if(write(client->fdresp, &client->session_id, sizeof(int))==-1){
     fprintf(stderr, "Failed to write to pipe\n");
   }
@@ -119,7 +124,7 @@ int session(struct client* client){
           fprintf(stderr, "Failed to read ys\n");
           continue;
         }
-
+        printf("before reserve\n  ");
         ret = ems_reserve(event_id, num_coords, xs, ys);
         if(write(out_fd, &ret, sizeof(int))==-1)
           fprintf(stderr, "Failed to write response\n");
@@ -212,25 +217,30 @@ int main(int argc, char* argv[]) {
     struct client* new_client= malloc(sizeof(struct client));
     char *buffer = malloc(40*sizeof(char));
     //read log in request from pipe
-    if(read(main_pipe_fd, &code, 1)==-1){
-      fprintf(stderr, "Failed to read from pipe\n");
-      continue;
+    ssize_t contread = 0;
+    while (contread == 0){
+      (contread = read(main_pipe_fd, &code, 1));
+      if (contread==-1 ){
+        fprintf(stderr, "Failed to read from pipe\n");
+        continue;
+      }
     }
+  
     if(read(main_pipe_fd, buffer , 40)==-1 ){
       fprintf(stderr, "Failed to read from pipe\n");
       free(new_client);
       continue;
     }
-
+  
     strcpy(new_client->req_path, buffer);
     if (read(main_pipe_fd,buffer, 40)==-1){
       fprintf(stderr, "Failed to read from pipe\n");
       free(new_client);
       continue;
     }
-    
+
     strcpy(new_client->res_path, buffer);
-    printf("%s\n",new_client->req_path);
+    free(buffer);
     produce(new_client);  
   }
 
