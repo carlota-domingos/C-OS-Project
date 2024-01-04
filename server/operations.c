@@ -195,34 +195,33 @@ int ems_show(int out_fd, unsigned int event_id) {
 
   if (pthread_mutex_lock(&event->mutex) != 0) {
     fprintf(stderr, "Error locking mutex\n");
+
     return 1;
   }
-
+  unsigned int buffer[event->rows*event->cols];
   for (size_t i = 1; i <= event->rows; i++) {
     for (size_t j = 1; j <= event->cols; j++) {
-      char buffer[16];
-      sprintf(buffer, "%u", event->data[seat_index(event, i, j)]);
-
-      if (print_str(out_fd, buffer)) {
-        perror("Error writing to file descriptor");
-        pthread_mutex_unlock(&event->mutex);
-        return 1;
-      }
-
-      if (j < event->cols) {
-        if (print_str(out_fd, " ")) {
-          perror("Error writing to file descriptor");
-          pthread_mutex_unlock(&event->mutex);
-          return 1;
-        }
-      }
+      buffer[(i-1)*(j-1)+j-1]=event->data[seat_index(event, i, j)];
     }
-
-    if (print_str(out_fd, "\n")) {
-      perror("Error writing to file descriptor");
-      pthread_mutex_unlock(&event->mutex);
-      return 1;
-    }
+  }
+  int ret = 0;
+  if(write(out_fd, &ret, sizeof(int))==-1){
+    perror("Error writing to file descriptor");
+    return 1;
+  }
+  if(write(out_fd, &event->rows, sizeof(size_t))==-1){
+    perror("Error writing to file descriptor");
+    return 1;
+  }
+  if(write(out_fd, &event->cols, sizeof(size_t))==-1){
+    perror("Error writing to file descriptor");
+    return 1;
+  }
+  if(write(out_fd, buffer, sizeof(unsigned int)*event->rows*event->cols)==-1){
+    perror("Error writing to file descriptor");
+    return 1;
+    //note:write error into fd outside of this function
+    //only errors above writes are applicable(???)
   }
 
   pthread_mutex_unlock(&event->mutex);
@@ -242,41 +241,47 @@ int ems_list_events(int out_fd) {
 
   struct ListNode* to = event_list->tail;
   struct ListNode* current = event_list->head;
-
+  size_t num_events = 0;
   if (current == NULL) {
-    char buff[] = "No events\n";
-    if (print_str(out_fd, buff)) {
+    pthread_rwlock_unlock(&event_list->rwl);
+    if(write(out_fd, &num_events, sizeof(size_t))==-1){
       perror("Error writing to file descriptor");
-      pthread_rwlock_unlock(&event_list->rwl);
       return 1;
     }
-
-    pthread_rwlock_unlock(&event_list->rwl);
     return 0;
   }
-
+  
+  unsigned int *buffer = malloc(sizeof(unsigned int));
   while (1) {
-    char buff[] = "Event: ";
-    if (print_str(out_fd, buff)) {
-      perror("Error writing to file descriptor");
-      pthread_rwlock_unlock(&event_list->rwl);
-      return 1;
-    }
-
-    char id[16];
-    sprintf(id, "%u\n", (current->event)->id);
-    if (print_str(out_fd, id)) {
-      perror("Error writing to file descriptor");
-      pthread_rwlock_unlock(&event_list->rwl);
-      return 1;
-    }
-
+    buffer[num_events]=(current->event)->id;
+    num_events++;
     if (current == to) {
       break;
     }
-
+    buffer = realloc(buffer, sizeof(unsigned int)*(num_events+1));
     current = current->next;
   }
+  unsigned int ids[num_events];
+  for (size_t i = 0; i < num_events; i++) {
+    ids[i]=buffer[i];
+  }
+
+  free(buffer);
+  int ret = 0;
+
+  if(write(out_fd,&ret, sizeof(int))==-1){
+    perror("Error writing to file descriptor");
+    return 1;
+  }
+  if(write(out_fd, &num_events, sizeof(size_t))==-1){
+    perror("Error writing to file descriptor");
+    return 1;
+  }
+  if(write(out_fd, ids, sizeof(unsigned int)*num_events)==-1){
+    perror("Error writing to file descriptor");
+    return 1;
+  }
+
 
   pthread_rwlock_unlock(&event_list->rwl);
   return 0;

@@ -3,6 +3,15 @@
 
 #include <stddef.h>
 
+struct client{
+  char req_path[40];
+  char res_path[40];
+  int fdreq;
+  int fdresp;
+  int session_id;
+};
+ 
+
 /// Initializes the EMS state.
 /// @param delay_us Delay in microseconds.
 /// @return 0 if the EMS state was initialized successfully, 1 otherwise.

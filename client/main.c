@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+
   const char* dot = strrchr(argv[4], '.');
   if (dot == NULL || dot == argv[4] || strlen(dot) != 5 || strcmp(dot, ".jobs") ||
       strlen(argv[4]) > MAX_JOB_FILE_NAME_SIZE) {
@@ -41,6 +42,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Failed to open output file. Path: %s\n", out_path);
     return 1;
   }
+  printf("Output file: %s\n", out_path);
 
   while (1) {
     unsigned int event_id;
@@ -114,8 +116,6 @@ int main(int argc, char* argv[]) {
         break;
 
       case EOC:
-        close(in_fd);
-        close(out_fd);
         ems_quit();
         return 0;
     }
