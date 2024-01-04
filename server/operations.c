@@ -198,12 +198,14 @@ int ems_show(int out_fd, unsigned int event_id) {
 
     return 1;
   }
+
   unsigned int buffer[event->rows*event->cols];
   for (size_t i = 1; i <= event->rows; i++) {
     for (size_t j = 1; j <= event->cols; j++) {
-      buffer[(i-1)*(j-1)+j-1]=event->data[seat_index(event, i, j)];
+      buffer[(i-1)*event->cols+j-1]= event->data[seat_index(event, i, j)];
     }
   }
+  printf("Showing event %u\n", event_id);
   int ret = 0;
   if(write(out_fd, &ret, sizeof(int))==-1){
     perror("Error writing to file descriptor");
@@ -220,8 +222,6 @@ int ems_show(int out_fd, unsigned int event_id) {
   if(write(out_fd, buffer, sizeof(unsigned int)*event->rows*event->cols)==-1){
     perror("Error writing to file descriptor");
     return 1;
-    //note:write error into fd outside of this function
-    //only errors above writes are applicable(???)
   }
 
   pthread_mutex_unlock(&event->mutex);

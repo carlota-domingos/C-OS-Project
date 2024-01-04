@@ -136,17 +136,22 @@ int session(struct client* client){
           fprintf(stderr, "Failed to read event_id\n");
           continue;
         }
-
-        ret=ems_show(out_fd, event_id);
-        if(write(out_fd, &ret, sizeof(int))==-1)
-          fprintf(stderr, "Failed to write response\n");
+        ret = ems_show(out_fd, event_id);
+        if (ret != 0){
+          fprintf(stderr, "Failed to show event\n");
+          if(write(out_fd, &ret, sizeof(int))==-1)
+            fprintf(stderr, "Failed to write response\n");
+        } 
         
         break;
 
       case '6':
         ret = ems_list_events(out_fd);
-        if(write(out_fd, &ret, sizeof(int))==-1)
-          fprintf(stderr, "Failed to write response\n");
+        if (ret != 0){
+          fprintf(stderr, "Failed to list events\n");
+          if(write(out_fd, &ret, sizeof(int))==-1)
+            fprintf(stderr, "Failed to write response\n");
+        } 
         
         break;
     }

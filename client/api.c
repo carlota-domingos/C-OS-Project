@@ -216,7 +216,7 @@ int ems_show(int out_fd, unsigned int event_id) {
     fprintf(stderr, "Failed to read num_cols from response pipe\n");
     return 1;
   }
-  unsigned int seats[num_rows][num_cols];
+  unsigned int *seats= malloc(sizeof(unsigned int)*num_rows*num_cols);
   if(read(fres, seats, sizeof(unsigned int)*num_rows*num_cols)<0) {
     fprintf(stderr, "Failed to read seats array from response pipe\n");
     return 1;
@@ -225,26 +225,31 @@ int ems_show(int out_fd, unsigned int event_id) {
   for (size_t i = 1; i <=num_rows; i++) {
     for (size_t j = 1; j <= num_cols; j++) {
       char buffer[16];
-      sprintf(buffer, "%u", seats[i][j]);
+      sprintf(buffer, "%u", seats[i*num_cols+j-1]);
 
       if (write(out_fd, buffer ,sizeof(buffer))==-1) {
         perror("Error writing to file");
+        free(seats);
         return 1;
       }
 
       if (j <num_cols) {
         if (write(out_fd, " ",1)==-1) {
           perror("Error writing to file descriptor");
+          free(seats);
           return 1;
         }
       }
     }
 
-    if (write(out_fd, "\n",1)==-1) {
+    if (write(out_fd, "\n\0",2)==-1) {
       perror("Error writing to file descriptor");
+      free(seats);
       return 1;
     }
+    
   }
+  free(seats);
   return 0;
 }
   
@@ -267,7 +272,7 @@ int ems_list_events(int out_fd) {
     return 1;
   }
   if(num_events == 0){
-    char buffer[] = "No events \n";
+    char buffer[] = "No events \n\0";
     if (write(out_fd, buffer,sizeof(buffer))==-1) {
       fprintf(stderr,"Error writing to file descriptor");
       return 1;
@@ -293,6 +298,10 @@ int ems_list_events(int out_fd) {
        fprintf(stderr,"Error writing to file descriptor");
       return 1;
     }
+  }
+  if(write(out_fd, "\0", 1)==-1){
+    fprintf(stderr,"Error writing to file descriptor");
+    return 1;
   }
   return 0;
 }

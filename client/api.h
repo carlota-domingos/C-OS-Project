@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdlib.h>
 
 /// Connects to an EMS server.
 /// @param req_pipe_path Path to the name pipe to be created for requests.
