@@ -8,7 +8,7 @@
 #include <bits/pthreadtypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
+#include <signal.h>
 
 #include "common/constants.h"
 #include "common/io.h"
@@ -17,11 +17,18 @@
 
 int session_id = 0;
 int waiting_sessions = 0;
+int flag=0;
 pthread_mutex_t produce_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t produce_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t consume_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t consume_cond = PTHREAD_COND_INITIALIZER;
 struct client prod_cons_buffer;
+
+void handle_sig(int sig ) {
+  if(sig==SIGUSR1){
+    flag=1;
+  }
+}
 
 void produce(struct client* client){
   pthread_mutex_lock(&produce_mutex);
@@ -48,13 +55,13 @@ struct client* consume(){
   if((client->fdreq=open(client->req_path, O_RDONLY))==-1){
       fprintf(stderr, "Failed to open request pipe\n");
   } 
-  printf("%s\n", client->req_path);
+
 
   
   if((client->fdresp=open(client->res_path, O_WRONLY))==-1){
     fprintf(stderr, "Failed to open response pipe\n");
   } 
-  printf("%s\n", client->res_path);
+
   
   if(write(client->fdresp, &client->session_id, sizeof(int))==-1){
     fprintf(stderr, "Failed to write to pipe\n");
@@ -62,8 +69,8 @@ struct client* consume(){
   return client;
 }
 
-
 int session(struct client* client){
+   
    int in_fd = client->fdreq;
    int out_fd = client->fdresp;
    char command;
@@ -71,6 +78,7 @@ int session(struct client* client){
    int ret;
    size_t num_rows, num_columns, num_coords;
    size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
+
    while (1) {    
     if(read(in_fd, &command, 1)==-1){
       fprintf(stderr, "Failed to read command\n");
@@ -124,7 +132,7 @@ int session(struct client* client){
           fprintf(stderr, "Failed to read ys\n");
           continue;
         }
-        printf("before reserve\n  ");
+
         ret = ems_reserve(event_id, num_coords, xs, ys);
         if(write(out_fd, &ret, sizeof(int))==-1)
           fprintf(stderr, "Failed to write response\n");
@@ -158,16 +166,23 @@ int session(struct client* client){
   }
 }
 
-
 void proc_clients(void*){
+  __sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGUSR1);
+
+  if(pthread_sigmask(SIG_BLOCK, &set, NULL)!=0){
+    fprintf(stderr, "Failed to block signal\n");
+    return;
+  }
   while(1){
     struct client* client = consume();
     session(client);
   }
 }
 
-
 int main(int argc, char* argv[]) {
+  signal(SIGUSR1, &handle_sig);
   if (argc < 2 || argc > 3) {
     fprintf(stderr, "Usage: %s\n <pipe_path> [delay]\n", argv[0]);
     return 1;
@@ -217,6 +232,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  
   while (1) {
     char code;
     struct client* new_client= malloc(sizeof(struct client));
@@ -224,6 +240,12 @@ int main(int argc, char* argv[]) {
     //read log in request from pipe
     ssize_t contread = 0;
     while (contread == 0){
+      if(flag==1){
+        if(ems_signal()==1){
+          return 1;
+        }
+        flag=0;
+      }
       (contread = read(main_pipe_fd, &code, 1));
       if (contread==-1 ){
         fprintf(stderr, "Failed to read from pipe\n");
@@ -247,7 +269,7 @@ int main(int argc, char* argv[]) {
     strcpy(new_client->res_path, buffer);
     free(buffer);
     produce(new_client);  
-  }
+}
 
  for(int i=0; i<MAX_SESSION_COUNT; i++){
     if(pthread_join(thread[i], NULL)!=0){

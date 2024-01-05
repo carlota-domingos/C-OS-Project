@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Failed to open output file. Path: %s\n", out_path);
     return 1;
   }
-  printf("Output file: %s\n", out_path);
+  
   
   while (1) {
     unsigned int event_id;

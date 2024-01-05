@@ -111,7 +111,6 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
   }
 
   pthread_rwlock_unlock(&event_list->rwl);
-  printf("Created event %u\n", event_id);
   return 0;
 }
 
@@ -205,7 +204,7 @@ int ems_show(int out_fd, unsigned int event_id) {
       buffer[(i-1)*event->cols+j-1]= event->data[seat_index(event, i, j)];
     }
   }
-  printf("Showing event %u\n", event_id);
+
   int ret = 0;
   if(write(out_fd, &ret, sizeof(int))==-1){
     perror("Error writing to file descriptor");
@@ -282,6 +281,47 @@ int ems_list_events(int out_fd) {
     return 1;
   }
 
+
+  pthread_rwlock_unlock(&event_list->rwl);
+  return 0;
+}
+
+int ems_signal(){
+  if (event_list == NULL) {
+    fprintf(stderr, "EMS state must be initialized\n");
+    return 1;
+  }
+
+  if (pthread_rwlock_rdlock(&event_list->rwl) != 0) {
+    fprintf(stderr, "Error locking list rwl\n");
+    return 1;
+  }
+
+  struct ListNode* to = event_list->tail;
+  struct ListNode* current = event_list->head;
+  if (current == NULL) {
+    pthread_rwlock_unlock(&event_list->rwl);
+    return 0;
+  }
+  
+  while (1) {
+    //print event id
+
+    printf("Event %u:\n", (current->event)->id);
+    for (size_t i = 1; i <= (current->event)->rows; i++) {
+      for (size_t j = 1; j <= (current->event)->cols; j++) {
+        printf("%u", (current->event)->data[seat_index(current->event, i, j)]);
+        if(j<(current->event)->cols){
+          printf(" ");
+        }
+      }
+      printf("\n");
+    }
+    if (current == to) {
+      break;
+    }
+    current = current->next;
+  }
 
   pthread_rwlock_unlock(&event_list->rwl);
   return 0;

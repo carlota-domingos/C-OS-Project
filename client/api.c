@@ -27,7 +27,7 @@ int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const*
   for(long unsigned int i =strlen(req_pipe_path); i<40; i++){
     buffer[i] = '\0';
   }
-  printf("%s\n", buffer);
+
   if((fdserver = open(server_pipe_path, O_WRONLY))==-1){
     fprintf(stderr, "Failed to open server pipe\n");
     return 1;
@@ -44,18 +44,16 @@ int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const*
   for(long unsigned int i =strlen(resp_pipe_path); i<40; i++){
     buffer[i] = '\0';
   }
-  printf("%s\n", buffer);
   
   if (write(fdserver, &buffer, 40) < 0){
     fprintf(stderr, "Failed to write to server pipe\n");
     return 1;
   }
-  printf("before closing\n");
+  
   if (close(fdserver)<0){
     fprintf(stderr, "Failed to close server pipe\n");
     return 1;
   }
-  printf("after closing\n");
 
   if ((freq = open (req_pipe_path, O_WRONLY)) < 0) {
     if(close(fres)<0){
@@ -88,11 +86,8 @@ int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const*
     return 1;
   } 
   
-  printf("session_id: %d\n", session_id);
   strcpy(this_req_pipe_path, req_pipe_path);
-  printf("this_req_pipe_path: %s\n", this_req_pipe_path);
   strcpy(this_resp_pipe_path, resp_pipe_path);
-  printf("this_resp_pipe_path: %s\n", this_resp_pipe_path);
 
   return 0;
 }
