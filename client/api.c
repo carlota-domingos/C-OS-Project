@@ -222,33 +222,32 @@ int ems_show(int out_fd, unsigned int event_id) {
     return 1;
   }
 
+
+  //buffer para collecionar tudo CUIDADO se for pequeno aumentar tamanho
+  char showStr[1028]= "";
   for (size_t i = 1; i <=num_rows; i++) {
     for (size_t j = 1; j <= num_cols; j++) {
       char buffer[16];
       sprintf(buffer, "%u", seats[i*num_cols+j-1]);
 
-      if (write(out_fd, buffer ,sizeof(buffer))==-1) {
-        perror("Error writing to file");
-        free(seats);
-        return 1;
-      }
+      strcat(showStr,buffer);
 
       if (j <num_cols) {
-        if (write(out_fd, " ",1)==-1) {
-          perror("Error writing to file descriptor");
-          free(seats);
-          return 1;
-        }
+        strcat(showStr, " ");
       }
     }
 
-    if (write(out_fd, "\n\0",2)==-1) {
-      perror("Error writing to file descriptor");
-      free(seats);
-      return 1;
-    }
+    strcat(showStr, "\n");
     
   }
+  strcat(showStr, "\0");
+  //lock_fd
+  if (write(out_fd, showStr ,sizeof(showStr))==-1) {
+    perror("Error writing to file");
+    free(seats);
+    return 1;
+  }
+  //unlock_fd
   free(seats);
   return 0;
 }
