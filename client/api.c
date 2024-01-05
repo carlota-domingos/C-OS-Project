@@ -222,33 +222,39 @@ int ems_show(int out_fd, unsigned int event_id) {
     return 1;
   }
 
-
   //buffer para collecionar tudo CUIDADO se for pequeno aumentar tamanho
   char showStr[1028]= "";
-  printf("num_rows: %zu\n", num_rows);
-  printf("num_cols: %zu\n", num_cols);
+  size_t showStrCounter;
+  int temp;
   for (size_t i = 0; i <num_rows; i++) {
     for (size_t j = 0; j <num_cols; j++) {
       char buffer[16];
-      sprintf(buffer, "%u", seats[i*num_cols+j]);
-
+      temp = sprintf(buffer, "%u", seats[i*num_cols+j]);
+      showStrCounter += (size_t)temp;
       strcat(showStr,buffer);
 
       if (j <num_cols) {
         strcat(showStr, " ");
+        showStrCounter++;
       }
     }
+
     strcat(showStr, "\n");
+    showStrCounter++;
+
   }
   strcat(showStr, "\0");
-
-  if (write(out_fd, showStr ,sizeof(showStr))==-1) {
+  showStrCounter++;
+  //lock_fd
+  if (write(out_fd, showStr ,showStrCounter-1)==-1) {
     perror("Error writing to file");
     free(seats);
     return 1;
   }
+  //unlock_fd
   free(seats);
   return 0;
+
 }
   
 
@@ -263,6 +269,9 @@ int ems_list_events(int out_fd) {
 
   if(read(fres, &ret, sizeof(int))<0) {
     fprintf(stderr, "Failed to read return\n");
+  } else if (ret == 1) {
+    fprintf(stderr, "Failed to list events\n");
+    return 1;
   }
 
   if(read(fres, &num_events, sizeof(size_t))<0) {
@@ -283,22 +292,25 @@ int ems_list_events(int out_fd) {
     fprintf(stderr, "Failed to read events array\n");
     return 1;
   }
-  for (size_t i = 1; i <=num_events; i++) {
-    char buffer[] = "Event: ";
-    if (write(out_fd, buffer, sizeof(buffer))) {
-       fprintf(stderr,"Error writing to file descriptor");
-      return 1;
-    }
+  //buffer para collecionar tudo CUIDADO se for pequeno aumentar tamanho
+  char listStr[1028]= "";
+  size_t listStrCounter=0;
+  int temp;
+  for (size_t i = 0; i <num_events; i++) {
+    strcat(listStr, "Event: ");
+    listStrCounter += 7;
 
     char id[16];
-    sprintf(id, "%u\n", events[i]);
-    if (write(out_fd, id, sizeof(id))) {
-       fprintf(stderr,"Error writing to file descriptor");
-      return 1;
-    }
+    temp = sprintf(id, "%u\n", events[i]);
+    strcat(listStr, id);
+    listStrCounter += (size_t)temp;
   }
-  if(write(out_fd, "\0", 1)==-1){
-    fprintf(stderr,"Error writing to file descriptor");
+
+  strcat(listStr, "\0");
+  listStrCounter++;
+
+  if(write(out_fd, listStr, listStrCounter-1) == -1) {
+    perror("Error writing to file");
     return 1;
   }
   return 0;

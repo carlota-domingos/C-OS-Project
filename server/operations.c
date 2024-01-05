@@ -268,7 +268,7 @@ int ems_list_events(int out_fd) {
 
   free(buffer);
   int ret = 0;
-
+  
   if(write(out_fd,&ret, sizeof(int))==-1){
     perror("Error writing to file descriptor");
     return 1;
