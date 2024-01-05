@@ -301,12 +301,11 @@ int ems_signal(){
   struct ListNode* current = event_list->head;
   if (current == NULL) {
     pthread_rwlock_unlock(&event_list->rwl);
+    printf("No events\n");
     return 0;
   }
   
   while (1) {
-    //print event id
-
     printf("Event %u:\n", (current->event)->id);
     for (size_t i = 1; i <= (current->event)->rows; i++) {
       for (size_t j = 1; j <= (current->event)->cols; j++) {

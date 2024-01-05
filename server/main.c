@@ -24,12 +24,15 @@ pthread_mutex_t consume_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t consume_cond = PTHREAD_COND_INITIALIZER;
 struct client prod_cons_buffer;
 
+// Signal handler
 void handle_sig(int sig ) {
   if(sig==SIGUSR1){
     flag=1;
   }
 }
 
+// Producer-Consumer
+// escreve no buffer
 void produce(struct client* client){
   pthread_mutex_lock(&produce_mutex);
   while(waiting_sessions== 1){
@@ -40,7 +43,7 @@ void produce(struct client* client){
   pthread_cond_signal(&consume_cond);
   pthread_mutex_unlock(&produce_mutex);
 }
-
+// le do buffer
 struct client* consume(){
   pthread_mutex_lock(&consume_mutex);
   while(waiting_sessions==0){
@@ -56,12 +59,9 @@ struct client* consume(){
       fprintf(stderr, "Failed to open request pipe\n");
   } 
 
-
-  
   if((client->fdresp=open(client->res_path, O_WRONLY))==-1){
     fprintf(stderr, "Failed to open response pipe\n");
   } 
-
   
   if(write(client->fdresp, &client->session_id, sizeof(int))==-1){
     fprintf(stderr, "Failed to write to pipe\n");
@@ -69,8 +69,8 @@ struct client* consume(){
   return client;
 }
 
+//processes the client requests
 int session(struct client* client){
-   
    int in_fd = client->fdreq;
    int out_fd = client->fdresp;
    char command;
@@ -87,11 +87,15 @@ int session(struct client* client){
 
     switch (command) {
       case '2':
-        if(close(in_fd)==-1)
+        if(close(in_fd)==-1){
           fprintf(stderr, "Failed to close request pipe\n");
-
-        if(close(out_fd)==-1)
+          return 1;
+        }
+      
+        if(close(out_fd)==-1){
           fprintf(stderr, "Failed to close response pipe\n");
+          return 1;
+        }
         free(client);
         return 0;
 
@@ -166,15 +170,18 @@ int session(struct client* client){
   }
 }
 
+// Thread function
 void proc_clients(void*){
   __sigset_t set;
   sigemptyset(&set);
   sigaddset(&set, SIGUSR1);
 
+  //blocks SIGUSR1
   if(pthread_sigmask(SIG_BLOCK, &set, NULL)!=0){
     fprintf(stderr, "Failed to block signal\n");
     return;
   }
+
   while(1){
     struct client* client = consume();
     session(client);
@@ -224,6 +231,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  //creates threads
   pthread_t thread[MAX_SESSION_COUNT];
   for(int i=0; i<MAX_SESSION_COUNT; i++){
     if (pthread_create(&thread[i],NULL, (void*)proc_clients, NULL) != 0) {
@@ -232,16 +240,18 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  
+  //reads session requests from main pipe
   while (1) {
     char code;
     struct client* new_client= malloc(sizeof(struct client));
     char *buffer = malloc(40*sizeof(char));
-    //read log in request from pipe
+    
     ssize_t contread = 0;
     while (contread == 0){
+      //checks if SIGUSR1 was received
       if(flag==1){
         if(ems_signal()==1){
+          free(new_client);
           return 1;
         }
         flag=0;
@@ -249,10 +259,11 @@ int main(int argc, char* argv[]) {
       (contread = read(main_pipe_fd, &code, 1));
       if (contread==-1 ){
         fprintf(stderr, "Failed to read from pipe\n");
+        free(new_client);
         continue;
       }
     }
-  
+
     if(read(main_pipe_fd, buffer , 40)==-1 ){
       fprintf(stderr, "Failed to read from pipe\n");
       free(new_client);
@@ -265,12 +276,12 @@ int main(int argc, char* argv[]) {
       free(new_client);
       continue;
     }
-
     strcpy(new_client->res_path, buffer);
     free(buffer);
     produce(new_client);  
 }
 
+//joins threads
  for(int i=0; i<MAX_SESSION_COUNT; i++){
     if(pthread_join(thread[i], NULL)!=0){
       fprintf(stderr, "Failed to join thread\n");

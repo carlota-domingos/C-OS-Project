@@ -15,10 +15,9 @@ int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const*
     fprintf(stderr, "Failed to create request pipe\n");
     return 1;
   }
+
   if(mkfifo(resp_pipe_path, 0777)<0){
-    if(unlink(req_pipe_path)<0){
-      fprintf(stderr, "Failed to unlink request pipe\n");
-    }
+    unlink(req_pipe_path);
     fprintf(stderr, "Failed to create response pipe\n");
     return 1;
   }
@@ -56,27 +55,16 @@ int ems_setup(char const* req_pipe_path, char const* resp_pipe_path, char const*
   }
 
   if ((freq = open (req_pipe_path, O_WRONLY)) < 0) {
-    if(close(fres)<0){
-      fprintf(stderr, "Failed to close response pipe\n");
-    }
-    if(unlink(req_pipe_path)<0){
-      fprintf(stderr, "Failed to unlink request pipe\n");
-    }
-    if(unlink(resp_pipe_path)<0){
-      fprintf(stderr, "Failed to unlink reponse pipe\n");
-    }
+    unlink(req_pipe_path);
+    unlink(resp_pipe_path);
     fprintf(stderr, "Failed to open request pipe\n");
     return 1;
   }
   
   if ((fres = open (resp_pipe_path, O_RDONLY)) < 0){
-    if(unlink(req_pipe_path)<0){
-      fprintf(stderr, "Failed to unlink request pipe\n");
-    }
-    if(unlink(resp_pipe_path)<0){
-      fprintf(stderr, "Failed to unlink reponse pipe\n");
-    }
-    fprintf(stderr, "Failed to open response pipe\n");
+    close(freq);
+    unlink(req_pipe_path);
+    unlink(resp_pipe_path);
     return 1;
   }
 
@@ -214,6 +202,7 @@ int ems_show(int out_fd, unsigned int event_id) {
   unsigned int *seats= malloc(sizeof(unsigned int)*num_rows*num_cols);
   if(read(fres, seats, sizeof(unsigned int)*num_rows*num_cols)<0) {
     fprintf(stderr, "Failed to read seats array from response pipe\n");
+    free(seats);
     return 1;
   }
 
@@ -242,7 +231,7 @@ int ems_show(int out_fd, unsigned int event_id) {
   showStrCounter++;
   //lock_fd
   if (write(out_fd, showStr ,showStrCounter-1)==-1) {
-    perror("Error writing to file");
+    fprintf(stderr,"Error writing to file descriptor");
     free(seats);
     return 1;
   }
@@ -305,7 +294,7 @@ int ems_list_events(int out_fd) {
   listStrCounter++;
 
   if(write(out_fd, listStr, listStrCounter-1) == -1) {
-    perror("Error writing to file");
+    fprintf(stderr,"Error writing to file descriptor");
     return 1;
   }
   return 0;

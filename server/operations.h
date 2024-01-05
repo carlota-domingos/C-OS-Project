@@ -47,6 +47,7 @@ int ems_show(int out_fd, unsigned int event_id);
 int ems_list_events(int out_fd);
 
 /// Prints all the reservations for every event
+/// @return 0 if the reservations were printed successfully, 1 otherwise.
 int ems_signal();
 
 #endif  // SERVER_OPERATIONS_H
