@@ -74,7 +74,7 @@ int session(struct client* client){
    while (1) {    
     if(read(in_fd, &command, 1)==-1){
       fprintf(stderr, "Failed to read command\n");
-      command = '2';
+      return 1;
     }
 
     switch (command) {

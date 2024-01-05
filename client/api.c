@@ -225,10 +225,12 @@ int ems_show(int out_fd, unsigned int event_id) {
 
   //buffer para collecionar tudo CUIDADO se for pequeno aumentar tamanho
   char showStr[1028]= "";
-  for (size_t i = 1; i <=num_rows; i++) {
-    for (size_t j = 1; j <= num_cols; j++) {
+  printf("num_rows: %zu\n", num_rows);
+  printf("num_cols: %zu\n", num_cols);
+  for (size_t i = 0; i <num_rows; i++) {
+    for (size_t j = 0; j <num_cols; j++) {
       char buffer[16];
-      sprintf(buffer, "%u", seats[i*num_cols+j-1]);
+      sprintf(buffer, "%u", seats[i*num_cols+j]);
 
       strcat(showStr,buffer);
 
@@ -236,18 +238,15 @@ int ems_show(int out_fd, unsigned int event_id) {
         strcat(showStr, " ");
       }
     }
-
     strcat(showStr, "\n");
-    
   }
   strcat(showStr, "\0");
-  //lock_fd
+
   if (write(out_fd, showStr ,sizeof(showStr))==-1) {
     perror("Error writing to file");
     free(seats);
     return 1;
   }
-  //unlock_fd
   free(seats);
   return 0;
 }
